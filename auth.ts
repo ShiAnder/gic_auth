@@ -85,6 +85,7 @@ export const { auth, handlers: { GET,POST }, signIn, signOut } = NextAuth({
             
       return session;
     },
+    
     async jwt({ token}){
       
       if(!token.sub) return token;
