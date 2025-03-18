@@ -1,9 +1,6 @@
-// prisma/schema.prisma
-
-
 datasource db {
-  provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -16,71 +13,118 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime? @map("email_verified")
-  image         String?
-  password      String?
-  role          UserRole @default(USER)
-  accounts      Account[]
-  isTwoFactorEnabled Boolean @default(false)
+  id                    String                 @id @default(cuid())
+  name                  String?
+  email                 String?                @unique
+  emailVerified         DateTime?              @map("email_verified")
+  image                 String?
+  password              String?
+  role                  UserRole               @default(USER)
+  accounts              Account[]
+  isTwoFactorEnabled    Boolean                @default(false)
   twoFactorConfirmation TwoFactorConfirmation?
+  organizations         Organization[] // Relationship to Organization
+  organizationRoles     OrganizationRole[] // Add this line to establish the relationship with OrganizationRole
 
   @@map("users")
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String  @map("user_id")
-  type               String
-  provider           String
-  providerAccountId  String  @map("provider_account_id")
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
- 
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
 
 model VerificationToken {
-  id String @id @default(cuid())
-  email String
-  token     String @unique
-  expires   DateTime
-
-  @@unique([email, token])
-}
-
-model PasswordResetToken{
-  id String @id @default(cuid())
-  email String
-  token String @unique
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
   expires DateTime
 
   @@unique([email, token])
 }
 
-model TwoFactorToken{
-  id String @id @default(cuid())
-  email String
-  token String @unique
+model PasswordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
   expires DateTime
 
   @@unique([email, token])
 }
 
-model TwoFactorConfirmation{
-  id String @id @default(cuid())
+model TwoFactorToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id     String @id @default(cuid())
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
+}
+
+// Organization Model
+model Organization {
+  id            String             @id @default(cuid())
+  name          String // Name of the organization
+  address       String? // Address of the organization
+  contactNumber String? // Contact number of the organization
+  email         String? // Email of the organization
+  website       String? // Website URL of the organization
+  district      String? // District where the organization is located
+  category      String? // Category of the organization (e.g., Education, Healthcare)
+  userId        String // ID of the user who created the organization
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade) // Relationship to User
+  roles         OrganizationRole[] // Relationship to OrganizationRole
+  Service       Service[]
+
+  @@map("organizations")
+}
+
+// OrganizationRole Model
+model OrganizationRole {
+  id             String       @id @default(cuid())
+  role           String // Role name (e.g., Director, Content Admin, IT Admin)
+  userId         String // ID of the user assigned to this role
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade) // Relationship to User
+  organizationId String // ID of the organization
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Relationship to Organization
+  services       Service[] // Relationship to Service
+
+  @@map("organization_roles")
+}
+
+// Service Model
+model Service {
+  id                 String           @id @default(cuid())
+  name               String // Name of the service
+  category           String // Category of the service
+  description        String? // Description of the service
+  organizationRoleId String // ID of the organization role
+  organizationRole   OrganizationRole @relation(fields: [organizationRoleId], references: [id], onDelete: Cascade) // Relationship to OrganizationRole
+  organizationId     String // ID of the organization
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Relationship to Organization
+
+  @@map("services")
 }
