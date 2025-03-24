@@ -5,13 +5,15 @@ interface ProtectedLayoutProps {
 };
 
 const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
-
     return (
-        <div className="h-full w-full flex flex-col gap-y-10 items-center justify-center bg-sky-500">
+        <div className="h-full flex flex-col">
             <Navbar />
-            {children}
+
+            <div className="flex-1 overflow-y-auto bg-sky-500 p-4">
+                {children}
+            </div>
         </div>
     );
-}
+};
 
 export default ProtectedLayout;

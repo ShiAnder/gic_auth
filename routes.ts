@@ -5,6 +5,8 @@
 export const publicRoutes = [
     "/",
     "/auth/new-verification",
+    "/client",
+    "/api/organization"
 
 ];
 
