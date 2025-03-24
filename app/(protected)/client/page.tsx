@@ -8,6 +8,7 @@ const ClientPage = () => {
 
   if (!user) {
     window.location.href = "/client";
+    return null; // Ensure the component returns null if user is not defined
   }
 
   return (

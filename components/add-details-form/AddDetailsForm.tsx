@@ -1,11 +1,43 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
-import { useState } from "react"; // Import useState for managing districts
-import { db } from "@/lib/db"; // Import Prisma Client
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Loader } from "lucide-react";
+import axios from "axios";
 
-export const AddDetailsForm = ({ label, user }) => {
-  const { register, control, handleSubmit, watch } = useForm({
+interface AddDetailsFormProps {
+  label: string;
+  user: {
+    id: string;
+  };
+}
+
+interface FormData {
+  province?: string;
+  district?: string;
+  institution?: string;
+  website?: string;
+  name?: string;
+  designation?: string;
+  email?: string;
+  contact?: string;
+  organizationLogo?: FileList;
+  professionalPhoto?: FileList;
+  services: {
+    serviceName: string;
+    category: string;
+    description: string;
+    requirements: string;
+  }[];
+}
+
+export const AddDetailsForm = ({ label, user }: AddDetailsFormProps) => {
+  const { register, control, handleSubmit, watch, setValue } = useForm<FormData>({
     defaultValues: {
       services: [{ serviceName: "", category: "", description: "", requirements: "" }],
     },
@@ -16,13 +48,14 @@ export const AddDetailsForm = ({ label, user }) => {
     name: "services",
   });
 
-  const [districts, setDistricts] = useState([]); // State to store districts
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ success?: boolean; message?: string }>({});
 
-  // Watch the province field for changes
   const selectedProvince = watch("province");
+  const selectedDistrict = watch("district");
 
-  // Define districts for each province
-  const provinceDistricts = {
+  const provinceDistricts: Record<string, string[]> = {
     "Western Province": ["Colombo", "Gampaha", "Kalutara"],
     "Central Province": ["Kandy", "Matale", "Nuwara Eliya"],
     "Southern Province": ["Galle", "Hambantota", "Matara"],
@@ -34,88 +67,79 @@ export const AddDetailsForm = ({ label, user }) => {
     "Sabaragamuwa Province": ["Kegalle", "Ratnapura"],
   };
 
-  // Update districts when province changes
-  useState(() => {
+  useEffect(() => {
     if (selectedProvince && provinceDistricts[selectedProvince]) {
       setDistricts(provinceDistricts[selectedProvince]);
+      setValue("district", ""); // Reset district selection
     } else {
       setDistricts([]);
+      setValue("district", "");
     }
-  }, [selectedProvince]);
+  }, [selectedProvince, setValue]);
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: FormData) => {
     try {
-      // Save institution details
-      const institution = await db.organization.create({
-        data: {
-          name: data.institution,
-          address: data.district, // Assuming district is used as address
-          contactNumber: data.contact,
-          email: data.email,
-          website: data.website,
-          district: data.district,
-          category: "Default Category", // You can add a category field to the form if needed
-          userId: user.id, // Link to the user who created the organization
+      setIsSubmitting(true);
+      setSubmitResult({});
+
+      const response = await axios.post('/api/organization', {
+        organizationData: {
+          name: data.institution || "",
+          address: data.district || "",
+          contactNumber: data.contact || "",
+          email: data.email || "",
+          website: data.website || "",
+          district: data.district || "",
+          category: "Default Category",
+          userId: user.id,
         },
+        servicesData: data.services,
       });
 
-      // Save services
-      for (const service of data.services) {
-        await db.service.create({
-          data: {
-            name: service.serviceName,
-            category: service.category,
-            description: service.description,
-            organizationId: institution.id, // Link to the organization
-          },
-        });
-      }
+      const result = await response.data;
 
-      console.log("Data saved successfully!");
+      if (result.success) {
+        setSubmitResult({ success: true, message: "Data saved successfully!" });
+      } else {
+        setSubmitResult({ success: false, message: result.error || "Error saving data." });
+      }
     } catch (error) {
-      console.error("Error saving data:", error);
+      setSubmitResult({ success: false, message: "An unexpected error occurred." });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center my-6">
-      <div className="w-full max-w-4xl p-6 bg-white shadow-md rounded-lg">
-        <h1 className="text-2xl font-bold text-gray-700 mb-4">
-          {label} {/* Dynamic label passed from ClientPage */}
-        </h1>
+    <div className="min-h-screen flex justify-center items-center bg-gray-100 p-6">
+      <Card className="w-full max-w-4xl shadow-lg">
+        <CardHeader>
+          <h1 className="text-2xl font-bold text-gray-700">{label}</h1>
+        </CardHeader>
+        <CardContent>
+          {submitResult.message && (
+            <div className={`p-4 mb-4 rounded-md ${submitResult.success ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{submitResult.message}</div>
+          )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Institution Details */}
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Institution Details</h2>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <select
-                {...register("province")}
-                className="border p-2 rounded"
-                onChange={(e) => {
-                  const selectedProvince = e.target.value;
-                  setDistricts(provinceDistricts[selectedProvince] || []);
-                }}
-              >
+              <select {...register("province")} className="border p-2 rounded w-full">
                 <option value="">Select Province</option>
                 {Object.keys(provinceDistricts).map((province) => (
-                  <option key={province} value={province}>
-                    {province}
-                  </option>
+                  <option key={province} value={province}>{province}</option>
                 ))}
               </select>
-              <select {...register("district")} className="border p-2 rounded">
+
+              <select {...register("district")} className="border p-2 rounded w-full" disabled={!selectedProvince}>
                 <option value="">Select District</option>
                 {districts.map((district) => (
-                  <option key={district} value={district}>
-                    {district}
-                  </option>
+                  <option key={district} value={district}>{district}</option>
                 ))}
               </select>
+            
               <input {...register("institution")} placeholder="Institution Name" className="border p-2 rounded" />
               <input {...register("website")} placeholder="Website URL" className="border p-2 rounded" />
             </div>
-          </section>
 
           {/* Personal Details */}
           <section className="space-y-3">
@@ -171,13 +195,13 @@ export const AddDetailsForm = ({ label, user }) => {
                   {...register(`services.${index}.description`)}
                   placeholder="Description"
                   className="border p-2 rounded w-full"
-                  rows="3"
+                  rows={3}
                 ></textarea>
                 <textarea
                   {...register(`services.${index}.requirements`)}
                   placeholder="Requirements"
                   className="border p-2 rounded w-full"
-                  rows="3"
+                  rows={3}
                 ></textarea>
 
                 {/* Remove Button */}
@@ -207,16 +231,12 @@ export const AddDetailsForm = ({ label, user }) => {
             </button>
           </section>
 
-          {/* Submit Button */}
-          <button type="submit" className="bg-green-500 text-white p-3 rounded w-full mt-4">
-            Submit Form
-          </button>
-        </form>
-
-        <footer className="text-center text-sm text-gray-500 mt-6">
-          © 2025 Government Services. All rights reserved.
-        </footer>
-      </div>
+            <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
+              {isSubmitting ? <Loader className="animate-spin mr-2" /> : "Submit Form"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };
